@@ -1,0 +1,16 @@
+{
+  "name": "face-verification-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "In-browser face verification demo: detection, alignment, 128-d embeddings and distance thresholds.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@vladmandic/face-api": "1.7.15"
+  }
+}

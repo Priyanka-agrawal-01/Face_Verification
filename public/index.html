@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Face Verification Lab · on-device face matching, explained</title>
+  <meta name="description" content="Compare two faces, identify a photo against a small gallery and measure accuracy on LFW. Detection, alignment and 128-number embeddings run entirely in your browser, so photos are never uploaded.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f6f6f4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e0e0d" media="(prefers-color-scheme: dark)">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Face Verification Lab">
+  <meta property="og:description" content="See how a computer decides if two faces match. Runs entirely in your browser.">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M9 13V9h4M19 9h4v4M23 19v4h-4M13 23H9v-4' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='16' r='3.4' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/theme.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="#verify">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M9 13V9h4M19 9h4v4M23 19v4h-4M13 23H9v-4"/><circle cx="16" cy="16" r="3.4"/></svg>
+        <span class="brand-name">Face Verification Lab</span>
+      </a>
+      <div class="top-actions">
+        <span class="status-pill" id="model-status" data-state="loading" role="status" title="Face models: about 12 MB, downloaded once and then cached"><span class="dot"></span><span>Loading models…</span></span>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Dark theme" aria-pressed="false">
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <p class="eyebrow">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        Private by design · runs on your device
+      </p>
+      <h1 id="hero-title">See how a computer decides <span class="accent-text">if two faces match</span></h1>
+      <p class="hero-sub">Detect a face, align it, turn it into 128 numbers and measure the distance. Every step runs in this browser tab, so your photos never leave your device.</p>
+      <dl class="hero-stats">
+        <div><dt>LFW accuracy, cross-validated</dt><dd>97.3%</dd></div>
+        <div><dt>numbers describe each face</dt><dd>128</dd></div>
+        <div><dt>photos uploaded to a server</dt><dd>0</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <div class="tabbar">
+    <nav class="wrap tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-verify" aria-controls="panel-verify" aria-selected="true" data-tab="verify">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 11l2 2 4-4"/></svg>
+        Verify <span class="tab-tag">1:1</span>
+      </button>
+      <button role="tab" id="tab-gallery" aria-controls="panel-gallery" aria-selected="false" tabindex="-1" data-tab="gallery">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        Gallery <span class="tab-tag">1:N</span>
+      </button>
+      <button role="tab" id="tab-evaluate" aria-controls="panel-evaluate" aria-selected="false" tabindex="-1" data-tab="evaluate">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18M8 16v-3M13 16V8M18 16v-6"/></svg>
+        Evaluate
+      </button>
+      <button role="tab" id="tab-how" aria-controls="panel-how" aria-selected="false" tabindex="-1" data-tab="how">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.01"/></svg>
+        How it works
+      </button>
+    </nav>
+  </div>
+
+  <main class="wrap" id="main">
+    <div class="alert" id="model-alert" role="alert" hidden>
+      <span><strong>The face models didn't load.</strong> Check your connection and try again.</span>
+      <button class="btn small" type="button" id="model-retry">Retry</button>
+    </div>
+
+    <!-- ======================= VERIFY ======================= -->
+    <section class="panel" id="panel-verify" role="tabpanel" aria-labelledby="tab-verify">
+      <div class="panel-head">
+        <h2>Are these the same person?</h2>
+        <p class="lead">Choose two photos. The app finds the largest face in each, turns it into a 128-number embedding, and measures the distance between them. A small distance means the faces probably belong to the same person.</p>
+        <div class="samples" id="samples" hidden>
+          <span class="muted small">No photos handy? Load a random LFW pair:</span>
+          <button class="btn small" type="button" data-sample="same">Same person</button>
+          <button class="btn small" type="button" data-sample="different">Different people</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><span class="step">1</span><h3>Photo A</h3></div>
+          <div class="drop" data-slot="a" tabindex="0" role="button" aria-label="Choose photo A">
+            <div class="hint">
+              <span class="hint-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>
+              <strong>Drop a photo here</strong>
+              <span>or click to browse, or paste an image</span>
+              <span class="formats">JPEG · PNG · WebP</span>
+            </div>
+          </div>
+          <p class="slot-meta" data-meta="a" aria-live="polite"></p>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="step">2</span><h3>Photo B</h3></div>
+          <div class="drop" data-slot="b" tabindex="0" role="button" aria-label="Choose photo B">
+            <div class="hint">
+              <span class="hint-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>
+              <strong>Drop a photo here</strong>
+              <span>or click to browse, or paste an image</span>
+              <span class="formats">JPEG · PNG · WebP</span>
+            </div>
+          </div>
+          <p class="slot-meta" data-meta="b" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div class="card verdict-card" id="verdict-card">
+        <div class="card-head"><span class="step">3</span><h3>Result</h3></div>
+        <div class="verdict">
+          <div>
+            <div class="muted small">Embedding distance</div>
+            <div class="big-number" id="verify-distance">—</div>
+          </div>
+          <div class="verdict-text" aria-live="polite">
+            <span class="badge" id="verify-badge">Waiting for two faces</span>
+            <p class="muted small" id="verify-margin">Add a photo on each side to compare them.</p>
+          </div>
+        </div>
+        <div class="gauge" id="verify-gauge" aria-hidden="true">
+          <div class="track"></div>
+          <div class="mark"><span>threshold 0.60</span></div>
+          <div class="pin"></div>
+          <div class="ticks"><span style="left:0">0</span><span style="left:25%">0.3</span><span style="left:50%">0.6</span><span style="left:75%">0.9</span><span style="left:100%">1.2</span></div>
+        </div>
+        <div class="slider">
+          <div class="slider-head"><span>Decision threshold (same person if distance ≤ threshold)</span><span class="num" data-threshold-label>0.60</span></div>
+          <input type="range" min="0.30" max="0.90" step="0.01" value="0.60" data-threshold aria-label="Decision threshold">
+        </div>
+        <p class="muted small" style="margin-top:8px">Lower threshold → fewer strangers accepted but more genuine matches rejected. Use the <a href="#evaluate">Evaluate tab</a> to measure that trade-off.</p>
+      </div>
+    </section>
+
+    <!-- ======================= GALLERY ======================= -->
+    <section class="panel" id="panel-gallery" role="tabpanel" aria-labelledby="tab-gallery" hidden>
+      <div class="panel-head">
+        <h2>Who is this?</h2>
+        <p class="lead">Enrol a few people who have agreed to take part, then identify a new photo against that small gallery. This is the 1:N version of the same maths: one query compared with every enrolled embedding.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card stack">
+          <div class="card-head"><span class="step">1</span><h3>Enrol people</h3></div>
+          <p class="notice">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Only enrol people who have given consent. Embeddings stay in this tab's memory and are cleared when you reload.</span>
+          </p>
+          <div class="row">
+            <label class="field" style="flex:1"><span>Name</span><input type="text" id="enrol-name" placeholder="e.g. Me" autocomplete="off"></label>
+            <button class="btn" type="button" id="enrol-pick">Choose photos</button>
+            <input type="file" id="enrol-files" accept="image/jpeg,image/png,image/webp" multiple hidden>
+          </div>
+          <p class="muted small" id="enrol-status" aria-live="polite">Tip: 3–5 photos per person with different lighting work best.</p>
+          <div class="people" id="people"></div>
+          <div class="empty-state" id="people-empty">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></svg>
+            <span>No one enrolled yet</span>
+          </div>
+        </div>
+        <div class="card stack">
+          <div class="card-head"><span class="step">2</span><h3>Identify a photo</h3></div>
+          <div class="drop" data-slot="query" tabindex="0" role="button" aria-label="Choose a photo to identify">
+            <div class="hint">
+              <span class="hint-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>
+              <strong>Drop a photo here</strong>
+              <span>It is compared against everyone enrolled</span>
+            </div>
+          </div>
+          <p class="slot-meta" data-meta="query" aria-live="polite"></p>
+          <div class="slider">
+            <div class="slider-head"><span>Decision threshold</span><span class="num" data-threshold-label>0.60</span></div>
+            <input type="range" min="0.30" max="0.90" step="0.01" value="0.60" data-threshold aria-label="Decision threshold">
+          </div>
+          <div class="table-scroll">
+            <table id="identify-table">
+              <thead><tr><th>Rank</th><th>Person</th><th class="num">Closest photo</th><th class="num">Average template</th><th>Result</th></tr></thead>
+              <tbody><tr><td colspan="5" class="muted">Enrol people and choose a query photo.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= EVALUATE ======================= -->
+    <section class="panel" id="panel-evaluate" role="tabpanel" aria-labelledby="tab-evaluate" hidden>
+      <div class="panel-head">
+        <h2>How accurate is it, really?</h2>
+        <p class="lead">Score labelled pairs and measure the error rates. Use the LFW research dataset in <code>data/lfw</code> with its official verification pairs, or point it at your own folder with one sub-folder per person.</p>
+      </div>
+      <div class="card stack">
+        <div class="row">
+          <label class="field"><span>Dataset</span><select id="eval-source"></select></label>
+          <input type="file" id="eval-folder" webkitdirectory multiple hidden>
+          <label class="field"><span>Pairs</span>
+            <select id="eval-protocol">
+              <option value="official">Official pairs.txt (LFW protocol)</option>
+              <option value="generated">Generated from folders</option>
+            </select>
+          </label>
+          <label class="field" id="eval-folds-field"><span>Folds (300+300 pairs each)</span><input type="number" id="eval-folds" min="1" max="10" value="2" style="width:90px"></label>
+          <label class="field" id="eval-max-field" hidden><span>Max same-person pairs</span><input type="number" id="eval-max" min="10" max="20000" value="500" style="width:110px"></label>
+          <button class="btn primary" id="eval-run">Run evaluation</button>
+          <button class="btn" id="eval-stop" disabled>Stop</button>
+        </div>
+        <div>
+          <div class="progress" id="eval-progress" role="progressbar" aria-label="Evaluation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="eval-bar"></div></div>
+          <p class="muted small" id="eval-status" style="margin-top:6px" aria-live="polite">Pick a dataset and run. Each LFW fold has about 800 photos; at roughly 6 photos per second, two folds take 4–5 minutes. Embeddings are cached, so re-runs are fast.</p>
+        </div>
+      </div>
+
+      <div class="empty-state roomy" id="eval-empty">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18M8 16v-3M13 16V8M18 16v-6"/></svg>
+        <strong>No results yet</strong>
+        <span>Run an evaluation to see accuracy, error rates, the ROC curve and the hardest mistakes.</span>
+      </div>
+
+      <div id="eval-results" class="stack" hidden>
+        <div class="tiles" id="eval-tiles"></div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Distance distribution</h3>
+            <p class="muted small">Share of each pair type per distance bin. The dashed line is the best threshold.</p>
+            <div class="legend"><span><i style="background:var(--series-1)"></i>Same person</span><span><i style="background:var(--series-2)"></i>Different people</span></div>
+            <div class="chart" id="hist-chart"></div>
+          </div>
+          <div class="card">
+            <h3>ROC curve</h3>
+            <p class="muted small">True accept rate against false accept rate as the threshold moves. Closer to the top-left is better.</p>
+            <div class="legend"><span><i style="background:var(--series-1)"></i>Model</span><span><i style="background:var(--muted)"></i>Random guess</span></div>
+            <div class="chart" id="roc-chart"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3>Accuracy by threshold</h3>
+            <button class="btn" id="eval-export">Export pair distances (CSV)</button>
+          </div>
+          <div class="table-scroll">
+            <table id="threshold-table" class="animate-rows">
+              <thead><tr><th class="num">Threshold</th><th class="num">Accuracy</th><th class="num">False accept rate</th><th class="num">False reject rate</th><th class="num">TP</th><th class="num">FP</th><th class="num">TN</th><th class="num">FN</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Mistakes at the best threshold</h3>
+          <p class="muted small" style="margin-bottom:10px">The hardest pairs: same person judged different (false rejects), and different people judged the same (false accepts).</p>
+          <div class="mistakes" id="mistakes"></div>
+          <div class="muted small" id="eval-noface" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= HOW IT WORKS ======================= -->
+    <section class="panel" id="panel-how" role="tabpanel" aria-labelledby="tab-how" hidden>
+      <div class="panel-head">
+        <h2>How it works</h2>
+        <p class="lead">Five steps turn a photo into a yes-or-no answer. The same steps power every tab.</p>
+      </div>
+      <div class="how-grid">
+        <div class="card">
+          <ol class="pipeline">
+            <li><div><h3>Detect</h3><p class="muted">An SSD MobileNet v1 detector scans the image and returns a box and a confidence score for every face. The largest face is treated as the subject.</p></div></li>
+            <li><div><h3>Find landmarks and align</h3><p class="muted">A second network places 68 points on the eyes, nose, mouth and jaw. They are used to crop the face consistently, so pose and position matter less.</p></div></li>
+            <li><div><h3>Embed</h3><p class="muted">A ResNet-style recognition network turns the aligned face into 128 numbers. It was trained so that photos of the same person produce nearby vectors and different people produce distant ones.</p></div></li>
+            <li><div><h3>Compare</h3><p class="muted">The Euclidean distance between two embeddings measures how alike the faces are. 0 means identical vectors. Values above about 1 are clearly different people.</p></div></li>
+            <li><div><h3>Decide</h3><p class="muted">A threshold turns the distance into a yes or no. Moving it trades false accepts against false rejects. The Evaluate tab picks it from data, and the LFW protocol tests it on held-out folds.</p></div></li>
+          </ol>
+          <p class="muted small" style="margin-top:16px">1:1 verification answers "are these the same person?". 1:N identification repeats the comparison against every enrolled embedding and takes the closest. Large face-search engines do the same at scale with an approximate nearest-neighbour index, which is why consent over whose faces go into that index matters.</p>
+        </div>
+        <aside class="card limits">
+          <h3>Limitations and ethics</h3>
+          <ul>
+            <li><strong>LFW is easy and dated.</strong> Mostly frontal, well-lit news photos of public figures. Expect lower accuracy on selfies, CCTV or across ages.</li>
+            <li><strong>Errors differ across groups.</strong> LFW skews toward adult, male, lighter-skinned faces. Report this alongside any accuracy figure.</li>
+            <li><strong>1:N is harder than 1:1.</strong> A threshold that looks fine for pairs can still let strangers through when compared against many people.</li>
+            <li><strong>Consent matters.</strong> The maths is simple; a large index of faces collected without consent is what makes it surveillance. Keep galleries small, consented and local.</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-row">
+      <div class="footer-brand">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M9 13V9h4M19 9h4v4M23 19v4h-4M13 23H9v-4"/><circle cx="16" cy="16" r="3.4"/></svg>
+        <span>Face Verification Lab</span>
+      </div>
+      <p>Runs in your browser with <a href="https://github.com/vladmandic/face-api" target="_blank" rel="noopener">face-api</a> and TensorFlow.js. Evaluation data: <a href="http://vis-www.cs.umass.edu/lfw/" target="_blank" rel="noopener">Labeled Faces in the Wild</a>. Only use photos of people who have agreed to it.</p>
+    </div>
+  </footer>
+
+  <div class="tooltip" id="tooltip" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

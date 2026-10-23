@@ -1,0 +1,16 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec).
+# In the Render dashboard: New → Blueprint → pick this repository, and Render
+# creates the web service below. Render sets PORT itself; HOST must be 0.0.0.0
+# so the service is reachable from outside its container.
+services:
+  - type: web
+    name: face-verification-lab
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
